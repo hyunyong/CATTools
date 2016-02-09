@@ -44,12 +44,10 @@ private:
 
   edm::EDGetTokenT<cat::JetCollection>      jetToken_;
   edm::EDGetTokenT<cat::METCollection>      metToken_;
-  edm::EDGetTokenT<int>   vtxToken_;
+  edm::EDGetTokenT<int>   vtxToken_, lumiSelectionToken_;
   edm::EDGetTokenT<edm::TriggerResults> triggerBits_;
   edm::EDGetTokenT<pat::TriggerObjectStandAloneCollection> triggerObjects_;
-  edm::EDGetTokenT<float> pileupWeight_;
-  edm::EDGetTokenT<float> pileupWeight_up_;
-  edm::EDGetTokenT<float> pileupWeight_dn_;
+  edm::EDGetTokenT<float> pileupWeight_, pileupWeight_up_, pileupWeight_dn_;
 
   vector<TTree*> ttree_;
 
@@ -57,11 +55,12 @@ private:
   int b_hlt_patjet_40_pass, b_hlt_patjet_60_pass, b_hlt_patjet_80_pass;
   int b_hlt_80_pass, b_hlt_140_pass, b_hlt_320_pass, b_hlt_400_pass, b_hlt_450_pass, b_hlt_500_pass;
   float b_beta, b_del_eta, b_del_phi, b_del_r;
-  float b_del_r12, b_raw_mass;
-  float b_jet1_pt, b_jet1_eta, b_jet1_phi;
-  float b_jet2_pt, b_jet2_eta, b_jet2_phi;
-  float b_jet3_pt, b_jet3_eta, b_jet3_phi;
+  float b_del_phi12, b_raw_mass;
+  float b_jet1_pt, b_jet1_eta, b_jet1_phi, b_jet1_p;
+  float b_jet2_pt, b_jet2_eta, b_jet2_phi, b_jet2_p;
+  float b_jet3_pt, b_jet3_eta, b_jet3_phi, b_jet3_p;
   float b_met, b_metSig;
+  float b_p3, b_ptr, b_ptr23;
 
   bool runOnMC_;
   float b_gjet1_pt, b_gjet1_eta, b_gjet1_phi;
@@ -79,6 +78,7 @@ ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
   jetToken_  = consumes<cat::JetCollection>(iConfig.getParameter<edm::InputTag>("jets"));
   metToken_  = consumes<cat::METCollection>(iConfig.getParameter<edm::InputTag>("mets"));
   vtxToken_  = consumes<int>(iConfig.getParameter<edm::InputTag>("vtx"));
+  lumiSelectionToken_ = consumes<int>(iConfig.getParameter<edm::InputTag>("lumiSelection"));
   triggerBits_ = consumes<edm::TriggerResults>(iConfig.getParameter<edm::InputTag>("triggerBits"));
   triggerObjects_ = consumes<pat::TriggerObjectStandAloneCollection>(iConfig.getParameter<edm::InputTag>("triggerObjects"));
   pileupWeight_  = consumes<float>(iConfig.getParameter<edm::InputTag>("pileupWeight"));
@@ -107,17 +107,20 @@ ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
     tr->Branch("del_eta", &b_del_eta, "del_eta/F");
     tr->Branch("del_phi", &b_del_phi, "del_phi/F");
     tr->Branch("del_r", &b_del_r, "del_r/F");
-    tr->Branch("del_r12", &b_del_r12, "del_r12/F");
+    tr->Branch("del_phi12", &b_del_phi12, "del_phi12/F");
     tr->Branch("raw_mass", &b_raw_mass, "raw_mass/F");
     tr->Branch("jet1_pt", &b_jet1_pt, "jet1_pt/F");
     tr->Branch("jet1_eta", &b_jet1_eta, "jet1_eta/F");
     tr->Branch("jet1_phi", &b_jet1_phi, "jet1_phi/F");
+    tr->Branch("jet1_p", &b_jet1_p, "jet1_p/F");
     tr->Branch("jet2_pt", &b_jet2_pt, "jet2_pt/F");
     tr->Branch("jet2_eta", &b_jet2_eta, "jet2_eta/F");
     tr->Branch("jet2_phi", &b_jet2_phi, "jet2_phi/F");
+    tr->Branch("jet2_p", &b_jet2_p, "jet2_p/F");
     tr->Branch("jet3_pt", &b_jet3_pt, "jet3_pt/F");
     tr->Branch("jet3_eta", &b_jet3_eta, "jet3_eta/F");
     tr->Branch("jet3_phi", &b_jet3_phi, "jet3_phi/F");
+    tr->Branch("jet3_p", &b_jet3_p, "jet3_p/F");
     tr->Branch("met", &b_met, "met/F");
     tr->Branch("metSig", &b_metSig, "metSig/F");
     tr->Branch("gjet1_pt", &b_gjet1_pt, "gjet1_pt/F");
@@ -149,7 +152,11 @@ ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
 void ColorCoherenceAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
   runOnMC_ = !iEvent.isRealData();
-  //runOnMC_ = false;
+  edm::Handle<int> lumiSelectionHandle;
+  iEvent.getByToken(lumiSelectionToken_, lumiSelectionHandle);
+  if (!runOnMC_){
+    if (*lumiSelectionHandle == 0) return;
+  }
   edm::Handle<cat::JetCollection> jets;
   if (!iEvent.getByToken(jetToken_, jets)) return;
 
@@ -207,12 +214,12 @@ void ColorCoherenceAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
     b_del_phi = reco::deltaPhi(seljets[2].Phi(), seljets[1].Phi());
     b_beta = atan2(b_del_phi, b_del_eta);
     b_del_r = reco::deltaR(seljets[2].Eta(), seljets[2].Phi(), seljets[1].Eta(), seljets[1].Phi());
-    b_del_r12 = reco::deltaR(seljets[1].Eta(), seljets[1].Phi(), seljets[0].Eta(), seljets[0].Phi());
+    b_del_phi12 = reco::deltaPhi(seljets[1].Phi(), seljets[0].Phi());
     b_raw_mass = (seljets[0] + seljets[1]).M();
 
-    b_jet1_pt = seljets[0].Pt(); b_jet1_eta = seljets[0].Eta(); b_jet1_phi = seljets[0].Phi();
-    b_jet2_pt = seljets[1].Pt(); b_jet2_eta = seljets[1].Eta(); b_jet2_phi = seljets[1].Phi();
-    b_jet3_pt = seljets[2].Pt(); b_jet3_eta = seljets[2].Eta(); b_jet3_phi = seljets[2].Phi();
+    b_jet1_pt = seljets[0].Pt(); b_jet1_eta = seljets[0].Eta(); b_jet1_phi = seljets[0].Phi(); b_jet1_p = seljets[0].P();
+    b_jet2_pt = seljets[1].Pt(); b_jet2_eta = seljets[1].Eta(); b_jet2_phi = seljets[1].Phi(); b_jet2_p = seljets[1].P();
+    b_jet3_pt = seljets[2].Pt(); b_jet3_eta = seljets[2].Eta(); b_jet3_phi = seljets[2].Phi(); b_jet3_p = seljets[2].P();
 
     // TODO: MET uncertainty due to jet energy scale to be added!!!
     b_met = mets->begin()->et();
@@ -259,9 +266,10 @@ vector<TLorentzVector> ColorCoherenceAnalyzer::selectJets(const cat::JetCollecti
   vector<TLorentzVector> seljets;
   for (auto jet : jets) {
     if (!jet.LooseId()) continue;
+    //if (!jet.TightId()) continue;
     //if (jet.pileupJetId() <0.9) continue;
     const TLorentzVector&& newjet = sysJet(jet, sys);
-    if (newjet.Pt() <= 20.) continue;
+    //if (newjet.Pt() <= 20.) continue;
 
     seljets.push_back(newjet);
   }
@@ -307,10 +315,10 @@ void ColorCoherenceAnalyzer::resetBr()
   b_hlt_patjet_40_pass = -99; b_hlt_patjet_60_pass = -99; b_hlt_patjet_80_pass = -99;
   b_hlt_80_pass = -99; b_hlt_140_pass = -99;  b_hlt_320_pass = -99; b_hlt_400_pass = -99; b_hlt_450_pass = -99; b_hlt_500_pass = -99;
   b_beta = -99; b_del_eta = -99; b_del_phi = -99; b_del_r = -99;
-  b_del_r12 = -99; b_raw_mass = -99;
-  b_jet1_pt = -99; b_jet1_eta = -99; b_jet1_phi = -99;
-  b_jet2_pt = -99; b_jet2_eta = -99; b_jet2_phi = -99;
-  b_jet3_pt = -99; b_jet3_eta = -99; b_jet3_phi = -99;
+  b_del_phi12 = -99; b_raw_mass = -99;
+  b_jet1_pt = -99; b_jet1_eta = -99; b_jet1_phi = -99; b_jet1_p = -99;
+  b_jet2_pt = -99; b_jet2_eta = -99; b_jet2_phi = -99; b_jet2_p = -99;
+  b_jet3_pt = -99; b_jet3_eta = -99; b_jet3_phi = -99; b_jet3_p = -99;
   b_met = -99; b_metSig = -99;
 
   b_gbeta = -99; b_gdel_eta = -99; b_gdel_phi = -99; b_gdel_r = -99;
