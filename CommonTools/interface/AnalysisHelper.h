@@ -5,6 +5,7 @@
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "DataFormats/PatCandidates/interface/TriggerObjectStandAlone.h"
 #include "CATTools/DataFormats/interface/Particle.h"
+#include "CATTools/DataFormats/interface/Jet.h"
 #include "DataFormats/Math/interface/deltaR.h"
 #include "CommonTools/Utils/interface/PtComparator.h"
 
@@ -15,6 +16,8 @@ namespace cat {
 TLorentzVector ToTLorentzVector(const reco::Candidate& t);
 typedef GreaterByPt<reco::Candidate> GtByCandPt;
 bool GtByTLVPt( TLorentzVector & t1, TLorentzVector & t2 );
+bool GtByTLVP( TLorentzVector & t1, TLorentzVector & t2 );
+bool GtByGENPt( cat::Jet & j1, cat::Jet & j2 );
 
 class AnalysisHelper {
  public:

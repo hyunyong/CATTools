@@ -6,6 +6,8 @@ namespace cat
 {
   TLorentzVector ToTLorentzVector(const reco::Candidate& t) { return TLorentzVector(t.px(), t.py(), t.pz(), t.energy()); }
   bool GtByTLVPt( TLorentzVector & t1, TLorentzVector & t2 ){ return t1.Pt() > t2.Pt();}
+  bool GtByTLVP( TLorentzVector & t1, TLorentzVector & t2 ){ return t1.P() > t2.P();}
+  bool GtByGENPt( cat::Jet & j1, cat::Jet & j2 ){ return j1.genJet()->p4().Pt() > j2.genJet()->p4().Pt();}
 
   bool AnalysisHelper::triggerNotSet()
   {

@@ -35,7 +35,7 @@ namespace cat {
     int partonPdgId() const{ return partonPdgId_;}
     void setPartonFlavour(int i) { partonFlavour_ = i; }
     void setPartonPdgId(int i) { partonPdgId_ = i; }
-
+    TLorentzVector tlv() const {return TLorentzVector(this->px(), this->py(),this->pz(),this->energy());}
   private:
 
     MCParticle hadron_;

@@ -21,7 +21,7 @@
 #include "TTree.h"
 #include "TLorentzVector.h"
 #include "Math/PtEtaPhiM4D.h"
-#include "TRandom.h"
+#include "TRandom3.h"
 
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -43,6 +43,7 @@ private:
   TLorentzVector jarJet(TLorentzVector jet) const;
 
   edm::EDGetTokenT<cat::JetCollection>      jetToken_;
+  edm::EDGetTokenT<reco::GenJetCollection>      genjetToken_;
   edm::EDGetTokenT<cat::METCollection>      metToken_;
   edm::EDGetTokenT<int>   vtxToken_, lumiSelectionToken_;
   edm::EDGetTokenT<edm::TriggerResults> triggerBits_;
@@ -50,32 +51,41 @@ private:
   edm::EDGetTokenT<float> pileupWeight_, pileupWeight_up_, pileupWeight_dn_;
 
   vector<TTree*> ttree_;
+  std::unique_ptr<TRandom3> rnd_;
 
   int b_nVtx, b_nJet;
   int b_hlt_patjet_40_pass, b_hlt_patjet_60_pass, b_hlt_patjet_80_pass;
   int b_hlt_80_pass, b_hlt_140_pass, b_hlt_320_pass, b_hlt_400_pass, b_hlt_450_pass, b_hlt_500_pass;
-  float b_beta, b_del_eta, b_del_phi, b_del_r;
-  float b_del_phi12, b_raw_mass;
+  float b_beta12, b_del_eta12, b_del_phi12, b_del_r12;
+  float b_beta23, b_del_eta23, b_del_phi23, b_del_r23;
+  float b_beta13, b_del_eta13, b_del_phi13, b_del_r13;
+  float b_raw_mass;
   float b_jet1_pt, b_jet1_eta, b_jet1_phi, b_jet1_p;
   float b_jet2_pt, b_jet2_eta, b_jet2_phi, b_jet2_p;
   float b_jet3_pt, b_jet3_eta, b_jet3_phi, b_jet3_p;
   float b_met, b_metSig;
-  float b_p3, b_ptr, b_ptr23;
 
   bool runOnMC_;
   float b_gjet1_pt, b_gjet1_eta, b_gjet1_phi;
   float b_gjet2_pt, b_gjet2_eta, b_gjet2_phi;
   float b_gjet3_pt, b_gjet3_eta, b_gjet3_phi;
-  float b_gbeta, b_gdel_eta, b_gdel_phi, b_gdel_r;
+  float b_gbeta, b_gdel_eta, b_gdel_phi, b_gdel_r, b_graw_mass, b_gdel_phi12;
   float b_jet1_deta, b_jet1_dphi;
   float b_jet2_deta, b_jet2_dphi;
   float b_jet3_deta, b_jet3_dphi;
   float b_pileupWeight, b_pileupWeight_up, b_pileupWeight_dn;
+
+  float b_gen_jet1_pt, b_gen_jet1_eta, b_gen_jet1_phi;
+  float b_gen_jet2_pt, b_gen_jet2_eta, b_gen_jet2_phi;
+  float b_gen_jet3_pt, b_gen_jet3_eta, b_gen_jet3_phi;
+  float b_gen_beta23, b_gen_del_eta23, b_gen_del_phi23, b_gen_del_r23, b_gen_raw_mass, b_gen_del_phi12;
+
 };
 
 ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
 {
   jetToken_  = consumes<cat::JetCollection>(iConfig.getParameter<edm::InputTag>("jets"));
+  genjetToken_  = consumes<reco::GenJetCollection>(iConfig.getParameter<edm::InputTag>("genjets"));
   metToken_  = consumes<cat::METCollection>(iConfig.getParameter<edm::InputTag>("mets"));
   vtxToken_  = consumes<int>(iConfig.getParameter<edm::InputTag>("vtx"));
   lumiSelectionToken_ = consumes<int>(iConfig.getParameter<edm::InputTag>("lumiSelection"));
@@ -84,7 +94,7 @@ ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
   pileupWeight_  = consumes<float>(iConfig.getParameter<edm::InputTag>("pileupWeight"));
   pileupWeight_up_  = consumes<float>(iConfig.getParameter<edm::InputTag>("pileupWeight_up"));
   pileupWeight_dn_  = consumes<float>(iConfig.getParameter<edm::InputTag>("pileupWeight_dn"));
-
+  rnd_.reset(new TRandom3());
   usesResource("TFileService");
   edm::Service<TFileService> fs;
   const std::vector<std::string> sys_name = {"nom", "jes_u", "jes_d", "jer_u", "jer_d", "jar"};
@@ -103,11 +113,18 @@ ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
     tr->Branch("hlt_400_pass", &b_hlt_400_pass, "hlt_400_pass/I");
     tr->Branch("hlt_450_pass", &b_hlt_450_pass, "hlt_450_pass/I");
     tr->Branch("hlt_500_pass", &b_hlt_500_pass, "hlt_500_pass/I");
-    tr->Branch("beta", &b_beta, "beta/F");
-    tr->Branch("del_eta", &b_del_eta, "del_eta/F");
-    tr->Branch("del_phi", &b_del_phi, "del_phi/F");
-    tr->Branch("del_r", &b_del_r, "del_r/F");
+    tr->Branch("beta12", &b_beta12, "beta12/F");
+    tr->Branch("del_eta12", &b_del_eta12, "del_eta12/F");
     tr->Branch("del_phi12", &b_del_phi12, "del_phi12/F");
+    tr->Branch("del_r12", &b_del_r12, "del_r12/F");
+    tr->Branch("beta23", &b_beta23, "beta23/F");
+    tr->Branch("del_eta23", &b_del_eta23, "del_eta23/F");
+    tr->Branch("del_phi23", &b_del_phi23, "del_phi23/F");
+    tr->Branch("del_r23", &b_del_r23, "del_r23/F");
+    tr->Branch("beta13", &b_beta13, "beta13/F");
+    tr->Branch("del_eta13", &b_del_eta13, "del_eta13/F");
+    tr->Branch("del_phi13", &b_del_phi13, "del_phi13/F");
+    tr->Branch("del_r13", &b_del_r13, "del_r13/F");
     tr->Branch("raw_mass", &b_raw_mass, "raw_mass/F");
     tr->Branch("jet1_pt", &b_jet1_pt, "jet1_pt/F");
     tr->Branch("jet1_eta", &b_jet1_eta, "jet1_eta/F");
@@ -136,6 +153,8 @@ ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
     tr->Branch("gdel_eta", &b_gdel_eta, "gdel_eta/F");
     tr->Branch("gdel_phi", &b_gdel_phi, "gdel_phi/F");
     tr->Branch("gdel_r", &b_gdel_r, "gdel_r/F");
+    tr->Branch("graw_mass", &b_graw_mass, "graw_mass/F");
+    tr->Branch("gdel_phi12", &b_gdel_phi12, "gdel_phi12/F");
     tr->Branch("pileupWeight", &b_pileupWeight, "pileupWeight/F");
     tr->Branch("pileupWeight_up", &b_pileupWeight_up, "pileupWeight_up/F");
     tr->Branch("pileupWeight_dn", &b_pileupWeight_dn, "pileupWeight_dn/F");
@@ -145,6 +164,20 @@ ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
     tr->Branch("jet1_dphi", &b_jet1_dphi, "jet1_dphi/F");
     tr->Branch("jet2_dphi", &b_jet2_dphi, "jet2_dphi/F");
     tr->Branch("jet3_dphi", &b_jet3_dphi, "jet3_dphi/F");
+    tr->Branch("gen_jet1_eta", &b_gen_jet1_eta, "gen_jet1_eta/F");
+    tr->Branch("gen_jet1_phi", &b_gen_jet1_phi, "gen_jet1_phi/F");
+    tr->Branch("gen_jet2_eta", &b_gen_jet2_eta, "gen_jet2_eta/F");
+    tr->Branch("gen_jet2_phi", &b_gen_jet2_phi, "gen_jet2_phi/F");
+    tr->Branch("gen_jet3_eta", &b_gen_jet3_eta, "gen_jet3_eta/F");
+    tr->Branch("gen_jet3_phi", &b_gen_jet3_phi, "gen_jet3_phi/F");
+
+    tr->Branch("gen_beta23", &b_gen_beta23, "gen_beta23/F");
+    tr->Branch("gen_del_eta23", &b_gen_del_eta23, "gen_del_eta23/F");
+    tr->Branch("gen_del_phi23", &b_gen_del_phi23, "gen_del_phi23/F");
+    tr->Branch("gen_del_r23", &b_gen_del_r23, "gen_del_r23/F");
+    tr->Branch("gen_raw_mass", &b_gen_raw_mass, "gen_raw_mass/F");
+    tr->Branch("gen_del_phi12", &b_gen_del_phi12, "gen_del_phi12/F");
+
   }
 
 }
@@ -178,10 +211,12 @@ void ColorCoherenceAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
   edm::Handle<float> pileupWeight;
   edm::Handle<float> pileupWeight_up;
   edm::Handle<float> pileupWeight_dn;
+  edm::Handle<reco::GenJetCollection> genjets;
   if (runOnMC_){
     iEvent.getByToken(pileupWeight_, pileupWeight);
     iEvent.getByToken(pileupWeight_up_, pileupWeight_up); 
     iEvent.getByToken(pileupWeight_dn_, pileupWeight_dn);  
+    iEvent.getByToken(genjetToken_, genjets);  
   }
 
 
@@ -210,16 +245,27 @@ void ColorCoherenceAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
     if(trigHelper.triggerFired("HLT_PFJet500_v")) {b_hlt_500_pass = 1; hlt_count++;}
     if (hlt_count < 1) return;
 
-    b_del_eta = copysign(1.0, seljets[1].Eta())*(seljets[2].Eta() - seljets[1].Eta());
-    b_del_phi = reco::deltaPhi(seljets[2].Phi(), seljets[1].Phi());
-    b_beta = atan2(b_del_phi, b_del_eta);
-    b_del_r = reco::deltaR(seljets[2].Eta(), seljets[2].Phi(), seljets[1].Eta(), seljets[1].Phi());
+    b_del_eta12 = copysign(1.0, seljets[0].Rapidity())*(seljets[1].Rapidity() - seljets[0].Rapidity());
     b_del_phi12 = reco::deltaPhi(seljets[1].Phi(), seljets[0].Phi());
+    b_beta12 = atan2(b_del_phi12, b_del_eta12);
+    b_del_r12 = reco::deltaR(seljets[1].Rapidity(), seljets[1].Phi(), seljets[0].Rapidity(), seljets[0].Phi());
+
+    b_del_eta23 = copysign(1.0, seljets[1].Rapidity())*(seljets[2].Rapidity() - seljets[1].Rapidity());
+    b_del_phi23 = reco::deltaPhi(seljets[2].Phi(), seljets[1].Phi());
+    b_beta23 = atan2(b_del_phi23, b_del_eta23);
+    b_del_r23 = reco::deltaR(seljets[2].Rapidity(), seljets[2].Phi(), seljets[1].Rapidity(), seljets[1].Phi());
+
+    b_del_eta13 = copysign(1.0, seljets[0].Rapidity())*(seljets[2].Rapidity() - seljets[0].Rapidity());
+    b_del_phi13 = reco::deltaPhi(seljets[2].Phi(), seljets[0].Phi());
+    b_beta13 = atan2(b_del_phi13, b_del_eta13);
+    b_del_r13 = reco::deltaR(seljets[2].Rapidity() , seljets[2].Phi(), seljets[0].Rapidity(), seljets[0].Phi());
+
+
     b_raw_mass = (seljets[0] + seljets[1]).M();
 
-    b_jet1_pt = seljets[0].Pt(); b_jet1_eta = seljets[0].Eta(); b_jet1_phi = seljets[0].Phi(); b_jet1_p = seljets[0].P();
-    b_jet2_pt = seljets[1].Pt(); b_jet2_eta = seljets[1].Eta(); b_jet2_phi = seljets[1].Phi(); b_jet2_p = seljets[1].P();
-    b_jet3_pt = seljets[2].Pt(); b_jet3_eta = seljets[2].Eta(); b_jet3_phi = seljets[2].Phi(); b_jet3_p = seljets[2].P();
+    b_jet1_pt = seljets[0].Pt(); b_jet1_eta = seljets[0].Rapidity(); b_jet1_phi = seljets[0].Phi(); b_jet1_p = seljets[0].P();
+    b_jet2_pt = seljets[1].Pt(); b_jet2_eta = seljets[1].Rapidity(); b_jet2_phi = seljets[1].Phi(); b_jet2_p = seljets[1].P();
+    b_jet3_pt = seljets[2].Pt(); b_jet3_eta = seljets[2].Rapidity(); b_jet3_phi = seljets[2].Phi(); b_jet3_p = seljets[2].P();
 
     // TODO: MET uncertainty due to jet energy scale to be added!!!
     b_met = mets->begin()->et();
@@ -230,28 +276,55 @@ void ColorCoherenceAnalyzer::analyze(const edm::Event& iEvent, const edm::EventS
       b_pileupWeight_up = *pileupWeight_up;
       b_pileupWeight_dn = *pileupWeight_dn;
       if (sys == sys_nom) {
+
+
         const vector<cat::Jet>* tmpJet = jets.product();
         vector<cat::Jet> gJets;
         for (auto jet : *tmpJet){
           if (!jet.LooseId()) continue;
+          if (!jet.genJet()) continue;
           gJets.push_back(jet);
         }
-        
+
         if (gJets.size() > 2 && gJets[0].genJet() && gJets[1].genJet() && gJets[2].genJet()){
-         
-          b_gjet1_pt = gJets[0].genJet()->p4().Pt(); b_gjet1_eta = gJets[0].genJet()->p4().Eta(); b_gjet1_phi = gJets[0].genJet()->p4().Phi();
-          b_gjet2_pt = gJets[1].genJet()->p4().Pt(); b_gjet2_eta = gJets[1].genJet()->p4().Eta(); b_gjet2_phi = gJets[1].genJet()->p4().Phi();
-          b_gjet3_pt = gJets[2].genJet()->p4().Pt(); b_gjet3_eta = gJets[2].genJet()->p4().Eta(); b_gjet3_phi = gJets[2].genJet()->p4().Phi();
+
+
+          b_gjet1_pt = gJets[0].genJet()->p4().Pt(); b_gjet1_eta = gJets[0].genJet()->p4().Rapidity(); b_gjet1_phi = gJets[0].genJet()->p4().Phi();
+          b_gjet2_pt = gJets[1].genJet()->p4().Pt(); b_gjet2_eta = gJets[1].genJet()->p4().Rapidity(); b_gjet2_phi = gJets[1].genJet()->p4().Phi();
+          b_gjet3_pt = gJets[2].genJet()->p4().Pt(); b_gjet3_eta = gJets[2].genJet()->p4().Rapidity(); b_gjet3_phi = gJets[2].genJet()->p4().Phi();
           b_gdel_eta = copysign(1.0, b_gjet2_eta)*(b_gjet3_eta - b_gjet2_eta);
           b_gdel_phi = reco::deltaPhi(b_gjet3_phi, b_gjet2_phi);
           b_gbeta = atan2(b_gdel_phi, b_gdel_eta);
           b_gdel_r = reco::deltaR(b_gjet3_eta, b_gjet3_phi, b_gjet2_eta, b_gjet2_phi);
-          b_jet1_deta = gJets[0].p4().Eta() - gJets[0].genJet()->p4().Eta();
-          b_jet2_deta = gJets[1].p4().Eta() - gJets[1].genJet()->p4().Eta();
-          b_jet3_deta = gJets[2].p4().Eta() - gJets[2].genJet()->p4().Eta();
+          b_graw_mass = (gJets[0].genJet()->p4() + gJets[1].genJet()->p4()).M();
+          b_gdel_phi12 = reco::deltaPhi(b_gjet2_phi, b_gjet1_phi);
+          b_jet1_deta = gJets[0].p4().Rapidity() - gJets[0].genJet()->p4().Rapidity();
+          b_jet2_deta = gJets[1].p4().Rapidity() - gJets[1].genJet()->p4().Rapidity();
+          b_jet3_deta = gJets[2].p4().Rapidity() - gJets[2].genJet()->p4().Rapidity();
           b_jet1_dphi = reco::deltaPhi(gJets[0].p4().Phi(), gJets[0].genJet()->p4().Phi());
           b_jet2_dphi = reco::deltaPhi(gJets[1].p4().Phi(), gJets[1].genJet()->p4().Phi());
           b_jet3_dphi = reco::deltaPhi(gJets[2].p4().Phi(), gJets[2].genJet()->p4().Phi());
+
+       }
+
+        const vector<reco::GenJet>* tmpgenJet = genjets.product();
+        //vector<cat::Jet> gJets;
+        vector<TLorentzVector> genJets;       
+        for (auto jet : *tmpgenJet){
+          genJets.push_back(TLorentzVector(jet.px(),jet.py(),jet.pz(),jet.energy()));
+        }
+        
+        if (genJets.size() > 2){
+          sort(genJets.begin(), genJets.end(), cat::GtByTLVPt);
+          b_gen_jet1_pt = genJets[0].Pt(); b_gen_jet1_eta = genJets[0].Rapidity(); b_gen_jet1_phi = genJets[0].Phi();
+          b_gen_jet2_pt = genJets[1].Pt(); b_gen_jet2_eta = genJets[1].Rapidity(); b_gen_jet2_phi = genJets[1].Phi();
+          b_gen_jet3_pt = genJets[2].Pt(); b_gen_jet3_eta = genJets[2].Rapidity(); b_gen_jet3_phi = genJets[2].Phi();
+          b_gen_del_eta23 = copysign(1.0, b_gen_jet2_eta)*(b_gen_jet3_eta - b_gen_jet2_eta);
+          b_gen_del_phi23 = reco::deltaPhi(b_gen_jet3_phi, b_gen_jet2_phi);
+          b_gen_beta23 = atan2(b_gen_del_phi23, b_gen_del_eta23);
+          b_gen_del_r23 = reco::deltaR(b_gen_jet3_eta, b_gen_jet3_phi, b_gen_jet2_eta, b_gen_jet2_phi);
+          b_gen_raw_mass = (genJets[0] + genJets[1]).M();
+          b_gen_del_phi12 = reco::deltaPhi(b_gen_jet2_phi, b_gen_jet1_phi);
         }
       }
     }
@@ -305,7 +378,7 @@ TLorentzVector ColorCoherenceAnalyzer::jarJet(TLorentzVector jet) const
   float sig_eta = eta_c[eta_bin][0]/jet.Pt() + eta_c[eta_bin][1]/sqrt(jet.Pt()) + eta_c[eta_bin][2];
   float sig_phi = phi_c[eta_bin][0]/jet.Pt() + phi_c[eta_bin][1]/sqrt(jet.Pt()) + phi_c[eta_bin][2];
 
-  sJet.SetPtEtaPhiM(jet.Pt(), TRandom().Gaus(jet.Eta(), sig_eta), TRandom().Gaus(jet.Phi(), sig_phi), jet.M());
+  sJet.SetPtEtaPhiM(jet.Pt(), rnd_->Gaus(jet.Eta(), sig_eta), rnd_->Gaus(jet.Phi(), sig_phi), jet.M());
   return sJet;
 }
 
@@ -314,14 +387,16 @@ void ColorCoherenceAnalyzer::resetBr()
   b_nVtx = -99; b_nJet = -99; 
   b_hlt_patjet_40_pass = -99; b_hlt_patjet_60_pass = -99; b_hlt_patjet_80_pass = -99;
   b_hlt_80_pass = -99; b_hlt_140_pass = -99;  b_hlt_320_pass = -99; b_hlt_400_pass = -99; b_hlt_450_pass = -99; b_hlt_500_pass = -99;
-  b_beta = -99; b_del_eta = -99; b_del_phi = -99; b_del_r = -99;
-  b_del_phi12 = -99; b_raw_mass = -99;
+  b_beta12 = -99; b_del_eta12 = -99; b_del_phi12 = -99; b_del_r12 = -99;
+  b_beta23 = -99; b_del_eta23 = -99; b_del_phi23 = -99; b_del_r23 = -99;
+  b_beta13 = -99; b_del_eta13 = -99; b_del_phi13 = -99; b_del_r13 = -99;
+  b_raw_mass = -99;
   b_jet1_pt = -99; b_jet1_eta = -99; b_jet1_phi = -99; b_jet1_p = -99;
   b_jet2_pt = -99; b_jet2_eta = -99; b_jet2_phi = -99; b_jet2_p = -99;
   b_jet3_pt = -99; b_jet3_eta = -99; b_jet3_phi = -99; b_jet3_p = -99;
   b_met = -99; b_metSig = -99;
 
-  b_gbeta = -99; b_gdel_eta = -99; b_gdel_phi = -99; b_gdel_r = -99;
+  b_gbeta = -99; b_gdel_eta = -99; b_gdel_phi = -99; b_gdel_r = -99; b_graw_mass = -99; b_gdel_phi12 = -99;
   b_gjet1_pt = -99; b_gjet1_eta = -99; b_gjet1_phi = -99;
   b_gjet2_pt = -99; b_gjet2_eta = -99; b_gjet2_phi = -99;
   b_gjet3_pt = -99; b_gjet3_eta = -99; b_gjet3_phi = -99;
@@ -329,6 +404,12 @@ void ColorCoherenceAnalyzer::resetBr()
   b_jet1_deta = -99; b_jet1_dphi = -99;
   b_jet2_deta = -99; b_jet2_dphi = -99;
   b_jet3_deta = -99; b_jet3_dphi = -99;
+
+  b_gen_jet1_pt = -99; b_gen_jet1_eta = -99; b_gen_jet1_phi = -99;
+  b_gen_jet2_pt = -99; b_gen_jet2_eta = -99; b_gen_jet2_phi = -99;
+  b_gen_jet3_pt = -99; b_gen_jet3_eta = -99; b_gen_jet3_phi = -99;
+  b_gen_beta23 = -99; b_gen_del_eta23 = -99; b_gen_del_phi23 = -99; b_gen_del_r23 = -99; b_gen_raw_mass = -99; b_gen_del_phi12 = -99;
+
 }
 
 DEFINE_FWK_MODULE(ColorCoherenceAnalyzer);
