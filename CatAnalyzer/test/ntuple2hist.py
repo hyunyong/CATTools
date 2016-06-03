@@ -98,13 +98,15 @@ for i, eta in enumerate(eta_bin_cut):
   for j, pt in enumerate(pt_bin_cut):
     for k, dr in enumerate(dr_bin_cut):
       for l, pt3 in enumerate(pt3_bin_cut):
-        cut_l.append(eta+pt+dr+pt3+"(1.0)")
+        cut_l.append(d_cut+eta+pt+dr+pt3+"(1.0)")
         cut_name.append(eta_bin[i]+"_"+pt_bin[j]+"_"+dr_bin[k]+"_"+pt3_bin[l])
-
+print cut_l
 if mc:
     sys_e = ["nom", "jer_u", "jer_d", "jar", "pu_u", "pu_d"]
+    sys_e = ["nom"]
 else:
     sys_e = ["nom", "jes_u", "jes_d"]    
+    sys_e = ["nom"]    
 hist_l = []
 
 for sys in sys_e:
@@ -173,7 +175,6 @@ for sys in sys_e:
     del tr
     del el
 
-
 # gen jet 
 if mc:
   ## event selection
@@ -209,6 +210,7 @@ if mc:
   pt3_bin_cut = [pt3_non, pt3_low, pt3_high]
   
   beta_l = ["beta23", "del_eta23", "del_phi23", "del_r23", "raw_mass","jet3_pt/jet2_pt"]
+  gen_beta_l = ["gen_beta23", "gen_del_eta23", "gen_del_phi23", "gen_del_r23", "gen_raw_mass","gen_jet3_pt/gen_jet2_pt"]
   beta_bin = [[18, 0, pi], [30, -3, 3], [30, -3, 3], [30, 0, 3], [50, 0, 5000], [10,0,1]]
   jet_l = ["pt", "eta", "phi"]
   jet_bin = [[30,0,2500],[30,-3,3],[30,-pi,pi]]
@@ -220,9 +222,9 @@ if mc:
     for j, pt in enumerate(pt_bin_cut):
       for k, dr in enumerate(dr_bin_cut):
         for l, pt3 in enumerate(pt3_bin_cut):
-          cut_l.append(eta+pt+dr+pt3+"(1.0)")
+          cut_l.append(d_cut+eta+pt+dr+pt3+"(1.0)")
           cut_name.append(eta_bin[i]+"_"+pt_bin[j]+"_"+dr_bin[k]+"_"+pt3_bin[l])
-  
+  print cut_l  
   for i, cut in enumerate(cut_l):
     tr = in_rf.Get("cc/nom").Clone(cut_name[i])
     tr.Draw(">>eventList", cut)
@@ -236,7 +238,7 @@ if mc:
       bin_set = beta_bin[bi]
       x_name = beta_loop
       y_name = "count"
-      br = "gen_"+beta_loop
+      br = gen_beta_l[bi]
       hist_l.append(copy.deepcopy(hist_maker(name, title, bin_set, x_name, y_name, tr, br, e_w)))
     for ji in xrange(3):
       for jii, jet_loop in enumerate(jet_l):
@@ -247,7 +249,10 @@ if mc:
         y_name = "count"
         br = "gen_jet%d_"%(ji+1)+jet_loop
         hist_l.append(copy.deepcopy(hist_maker(name, title, bin_set, x_name, y_name, tr, br, e_w)))
-  
+    del tr
+    del el
+
+ 
 
 
 # out file write

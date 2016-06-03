@@ -164,13 +164,15 @@ ColorCoherenceAnalyzer::ColorCoherenceAnalyzer(const edm::ParameterSet& iConfig)
     tr->Branch("jet1_dphi", &b_jet1_dphi, "jet1_dphi/F");
     tr->Branch("jet2_dphi", &b_jet2_dphi, "jet2_dphi/F");
     tr->Branch("jet3_dphi", &b_jet3_dphi, "jet3_dphi/F");
+    tr->Branch("gen_jet1_pt", &b_gen_jet1_pt, "gen_jet1_pt/F");
     tr->Branch("gen_jet1_eta", &b_gen_jet1_eta, "gen_jet1_eta/F");
     tr->Branch("gen_jet1_phi", &b_gen_jet1_phi, "gen_jet1_phi/F");
+    tr->Branch("gen_jet2_pt", &b_gen_jet2_pt, "gen_jet2_pt/F");
     tr->Branch("gen_jet2_eta", &b_gen_jet2_eta, "gen_jet2_eta/F");
     tr->Branch("gen_jet2_phi", &b_gen_jet2_phi, "gen_jet2_phi/F");
+    tr->Branch("gen_jet3_pt", &b_gen_jet3_pt, "gen_jet3_pt/F");
     tr->Branch("gen_jet3_eta", &b_gen_jet3_eta, "gen_jet3_eta/F");
     tr->Branch("gen_jet3_phi", &b_gen_jet3_phi, "gen_jet3_phi/F");
-
     tr->Branch("gen_beta23", &b_gen_beta23, "gen_beta23/F");
     tr->Branch("gen_del_eta23", &b_gen_del_eta23, "gen_del_eta23/F");
     tr->Branch("gen_del_phi23", &b_gen_del_phi23, "gen_del_phi23/F");
